@@ -2,417 +2,90 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Previsão de Alagamentos - Recife (APAC)</title>
+  <title>Mapa de Alagamentos - Recife</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4Qj1GMnC5fH8vPkwZ88R0QfH3fQ7B2v3QmO6pVYfPo="
-    crossorigin=""
   />
-  <!-- Simple styling -->
   <style>
-    :root {
-      --bg: #0f172a;
-      --panel: #111827;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --accent: #22d3ee;
-      --danger: #ef4444;
-      --warn: #f59e0b;
-      --ok: #10b981;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background: var(--bg);
-      color: var(--text);
-    }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      background: #0b1220;
-      border-bottom: 1px solid #1f2937;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 18px;
-      letter-spacing: 0.2px;
-    }
-    header .actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .btn {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      background: #0b1324;
-      color: var(--text);
-      cursor: pointer;
-    }
-    .btn:hover { border-color: var(--accent); color: #cffafe; }
-    .container {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 12px;
-      padding: 12px;
-    }
-    #map {
-      height: calc(100vh - 96px);
-      background: #0b1324;
-      border: 1px solid #1f2937;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .sidebar {
-      display: grid;
-      grid-template-rows: 1fr auto;
-      gap: 12px;
-      height: calc(100vh - 96px);
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid #1f2937;
-      border-radius: 10px;
-      padding: 12px;
-      overflow: auto;
-    }
-    .panel h2 {
-      margin: 4px 0 10px 0;
-      font-size: 16px;
-    }
-    .muted { color: var(--muted); font-size: 12px; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    th, td {
-      border-bottom: 1px solid #1f2937;
-      padding: 8px;
-      text-align: left;
-    }
-    th { position: sticky; top: 0; background: #0f1629; }
-    .badge {
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      display: inline-block;
-    }
-    .risk-alto { background: #7f1d1d; color: #fecaca; }
-    .risk-moderado { background: #7c2d12; color: #ffedd5; }
-    .risk-baixo { background: #064e3b; color: #d1fae5; }
-    .legend {
-      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 12px;
-    }
-    .legend span { display: inline-flex; align-items: center; gap: 6px; }
-    .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      display: inline-block; border: 1px solid #0b1220;
-    }
-    .dot-verde { background: #10b981; }
-    .dot-laranja { background: #f59e0b; }
-    .dot-vermelho { background: #ef4444; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .form-field { display: grid; gap: 6px; margin-bottom: 8px; }
-    .form-field label { font-size: 12px; color: var(--muted); }
-    .form-field input {
-      padding: 8px; border-radius: 8px; border: 1px solid #334155;
-      background: #0b1324; color: var(--text);
-    }
-    .error { color: #fecaca; background: #7f1d1d; padding: 8px; border-radius: 8px; margin-top: 8px; }
-    .success { color: #d1fae5; background: #064e3b; padding: 8px; border-radius: 8px; margin-top: 8px; }
-    .footer { padding: 8px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid #1f2937; }
-    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-    .kpi {
-      background: #0f1629; border: 1px solid #1f2937; border-radius: 8px; padding: 8px;
-    }
-    .kpi .label { font-size: 12px; color: var(--muted); }
-    .kpi .value { font-size: 18px; margin-top: 2px; }
+    body { margin:0; font-family:sans-serif; background:#0f172a; color:#eee; }
+    #map { height: 80vh; }
+    .panel { padding:10px; background:#111827; }
+    label { display:block; margin-top:6px; font-size:13px; }
+    input { width:100%; padding:6px; margin-top:2px; background:#1f2937; border:1px solid #374151; color:#eee; border-radius:4px; }
+    button { margin-top:10px; padding:8px 12px; background:#2563eb; border:none; border-radius:4px; color:#fff; cursor:pointer; }
+    button:hover { background:#1d4ed8; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Previsão de Alagamentos - Recife (APAC)</h1>
-    <div class="actions">
-      <button class="btn" id="btnReload">Atualizar dados</button>
-      <span class="muted">Base: http://127.0.0.1:8000</span>
-    </div>
-  </header>
+  <h2 style="padding:10px; margin:0;">Previsão de Alagamentos - Recife</h2>
+  <div id="map"></div>
 
-  <div class="container">
-    <div id="map"></div>
-
-    <div class="sidebar">
-      <div class="panel" id="panelRegioes">
-        <h2>Agregação por regiões</h2>
-        <div class="legend">
-          <span><span class="dot dot-verde"></span> Baixo</span>
-          <span><span class="dot dot-laranja"></span> Moderado</span>
-          <span><span class="dot dot-vermelho"></span> Alto</span>
-        </div>
-        <div class="kpis" id="kpis"></div>
-        <table id="tblRegioes">
-          <thead>
-            <tr>
-              <th>Região</th>
-              <th>Total</th>
-              <th>Chuva média (mm)</th>
-              <th>Score médio</th>
-              <th>% risco alto</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="regioesStatus" class="muted"></div>
-      </div>
-
-      <div class="panel">
-        <h2>Simulação de ponto</h2>
-        <div class="form-field">
-          <label>Nome</label>
-          <input id="simNome" placeholder="Estação Simulada" value="Simulação Boa Viagem" />
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Latitude</label>
-            <input id="simLat" type="number" step="0.000001" value="-8.120000" />
-          </div>
-          <div class="form-field">
-            <label>Longitude</label>
-            <input id="simLon" type="number" step="0.000001" value="-34.900000" />
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Chuva (mm)</label>
-            <input id="simChuva" type="number" step="0.1" value="65" />
-          </div>
-          <div class="form-field">
-            <label>Prob. chuva (%)</label>
-            <input id="simProb" type="number" step="1" value="80" />
-          </div>
-        </div>
-        <div class="form-field">
-          <label>Acumulado 24h (mm)</label>
-          <input id="simAcum" type="number" step="0.1" value="100" />
-        </div>
-        <button class="btn" id="btnSimular">Simular e plotar no mapa</button>
-        <div id="simMsg" class="muted" style="margin-top:8px;"></div>
-      </div>
-    </div>
+  <div class="panel">
+    <h3>Simulação</h3>
+    <label>Nome <input id="nome" value="Simulação Boa Viagem"></label>
+    <label>Latitude <input id="lat" type="number" step="0.0001" value="-8.12"></label>
+    <label>Longitude <input id="lon" type="number" step="0.0001" value="-34.9"></label>
+    <label>Chuva (mm) <input id="chuva" type="number" value="65"></label>
+    <label>Prob. Chuva (%) <input id="prob" type="number" value="80"></label>
+    <label>Acumulado 24h (mm) <input id="acum" type="number" value="100"></label>
+    <button onclick="simular()">Simular e adicionar no mapa</button>
+    <div id="msg"></div>
   </div>
 
-  <div class="footer">
-    Dados: /mapa, /regioes, /simular. Atualize a página se mudar o servidor.
-  </div>
-
-  <!-- Leaflet JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCnG0M6Hrd/dIWFx4C2CkGgC9vHjbFv5QkQSk0jY="
-    crossorigin=""
-  ></script>
-
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const API_BASE = "http://127.0.0.1:8000";
-
-    // Initialize map centered on Recife
-    const map = L.map("map", {
-      zoomControl: true,
-      attributionControl: true,
-      preferCanvas: true
-    }).setView([-8.06, -34.90], 12);
-
-    // Tile layer
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
-      attribution: "© OpenStreetMap contributors"
-    }).addTo(map);
-
-    // Marker layer group
+    const API = "http://127.0.0.1:8000";
+    const map = L.map("map").setView([-8.06, -34.9], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
     const markers = L.layerGroup().addTo(map);
 
-    // Simple risk-to-color mapping
-    function colorForRisk(riskOrColor, fallbackScore) {
-      const c = String(riskOrColor).toLowerCase();
-      if (["vermelho", "laranja", "verde"].includes(c)) return c;
-      if (c.includes("alto")) return "vermelho";
-      if (c.includes("moder")) return "laranja";
-      if (c.includes("baixo")) return "verde";
-      // fallback by score
-      if (typeof fallbackScore === "number") {
-        if (fallbackScore >= 0.7) return "vermelho";
-        if (fallbackScore >= 0.4) return "laranja";
-        return "verde";
-      }
-      return "verde";
+    function cor(cor, score){
+      if(cor==="vermelho") return "#ef4444";
+      if(cor==="laranja") return "#f59e0b";
+      if(cor==="verde") return "#10b981";
+      if(score>=0.7) return "#ef4444";
+      if(score>=0.4) return "#f59e0b";
+      return "#10b981";
     }
 
-    function cssColor(name) {
-      if (name === "vermelho") return "#ef4444";
-      if (name === "laranja") return "#f59e0b";
-      return "#10b981"; // verde
-    }
-
-    function addPointToMap(p) {
-      const colorName = colorForRisk(p.cor || p.risco || "", p.score);
-      const colorHex = cssColor(colorName);
-      const circle = L.circleMarker([p.latitude, p.longitude], {
-        radius: 8 + Math.round((p.score || 0) * 6),
-        color: "#0b1220",
-        weight: 1,
-        fillColor: colorHex,
-        fillOpacity: 0.9
+    async function carregarMapa(){
+      markers.clearLayers();
+      const res = await fetch(API+"/mapa");
+      const data = await res.json();
+      data.pontos.forEach(p=>{
+        L.circleMarker([p.latitude,p.longitude],{
+          radius:6+(p.score*6),
+          fillColor:cor(p.cor,p.score),
+          color:"#000", weight:1, fillOpacity:0.9
+        }).bindPopup(`<b>${p.nome}</b><br>Risco: ${p.risco}<br>Score: ${p.score}`).addTo(markers);
       });
-      const popup = `
-        <div>
-          <strong>${p.nome || "Estação"}</strong><br/>
-          Risco: <span class="badge ${p.risco === "ALTO" ? "risk-alto" : p.risco === "MODERADO" ? "risk-moderado" : "risk-baixo"}">${p.risco || "n/d"}</span><br/>
-          Score: ${typeof p.score === "number" ? p.score.toFixed(3) : "n/d"}<br/>
-          Chuva: ${typeof p.chuva_mm === "number" ? p.chuva_mm.toFixed(1) : p.chuva_mm || "n/d"} mm
-        </div>
-      `;
-      circle.bindPopup(popup);
-      circle.addTo(markers);
-      return circle;
     }
 
-    async function fetchJSON(url, opts = {}) {
-      const res = await fetch(url, { ...opts, headers: { "Content-Type": "application/json" } });
-      if (!res.ok) throw new Error(`Erro HTTP ${res.status}`);
-      return res.json();
-    }
-
-    async function loadMapa() {
-      const statusEl = document.getElementById("regioesStatus");
-      try {
-        markers.clearLayers();
-        const data = await fetchJSON(`${API_BASE}/mapa`);
-        const pontos = Array.isArray(data.pontos) ? data.pontos : [];
-        if (pontos.length === 0) {
-          statusEl.textContent = "Nenhum ponto retornado em /mapa.";
-        } else {
-          statusEl.textContent = `Pontos carregados: ${pontos.length}.`;
-        }
-        let bounds = [];
-        pontos.forEach(addPointToMap);
-        pontos.forEach(p => bounds.push([p.latitude, p.longitude]));
-        if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = `Erro ao carregar /mapa: ${err.message}`;
-      }
-    }
-
-    function renderRegioesTable(regioes) {
-      const tbody = document.querySelector("#tblRegioes tbody");
-      tbody.innerHTML = "";
-      const kpisEl = document.getElementById("kpis");
-      kpisEl.innerHTML = "";
-      let totalPontos = 0, mediaScore = 0, mediaChuva = 0, contRegioes = 0;
-
-      Object.entries(regioes || {}).forEach(([nome, d]) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${nome}</td>
-          <td>${d.total_pontos || 0}</td>
-          <td>${Number(d.chuva_media || 0).toFixed(2)}</td>
-          <td>${Number(d.score_medio || 0).toFixed(3)}</td>
-          <td>${Number(d.percentual_alto || 0).toFixed(2)}%</td>
-        `;
-        tbody.appendChild(tr);
-
-        totalPontos += (d.total_pontos || 0);
-        mediaScore += (d.score_medio || 0);
-        mediaChuva += (d.chuva_media || 0);
-        contRegioes += 1;
+    async function simular(){
+      const payload = {
+        nome: document.getElementById("nome").value,
+        latitude: parseFloat(document.getElementById("lat").value),
+        longitude: parseFloat(document.getElementById("lon").value),
+        chuva_mm: parseFloat(document.getElementById("chuva").value),
+        prob_chuva: parseFloat(document.getElementById("prob").value),
+        acumulado_24h: parseFloat(document.getElementById("acum").value)
+      };
+      const res = await fetch(API+"/simular",{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
       });
-
-      const avgScore = contRegioes ? (mediaScore / contRegioes) : 0;
-      const avgChuva = contRegioes ? (mediaChuva / contRegioes) : 0;
-      const kpiTpl = (label, value) => `
-        <div class="kpi">
-          <div class="label">${label}</div>
-          <div class="value">${value}</div>
-        </div>
-      `;
-      kpisEl.innerHTML = `
-        ${kpiTpl("Total de pontos", totalPontos)}
-        ${kpiTpl("Score médio (regiões)", avgScore.toFixed(3))}
-        ${kpiTpl("Chuva média (regiões)", avgChuva.toFixed(2))}
-      `;
+      const p = await res.json();
+      L.circleMarker([p.latitude,p.longitude],{
+        radius:6+(p.score*6),
+        fillColor:cor(p.cor,p.score),
+        color:"#2563eb", weight:2, fillOpacity:0.9
+      }).bindPopup(`<b>${p.nome}</b><br>Risco: ${p.risco}<br>Score: ${p.score}`).addTo(markers);
+      document.getElementById("msg").innerHTML = `<p style="color:#10b981">Simulação adicionada: risco ${p.risco}, score ${p.score}</p>`;
     }
 
-    async function loadRegioes() {
-      const statusEl = document.getElementById("regioesStatus");
-      try {
-        const data = await fetchJSON(`${API_BASE}/regioes`);
-        if (data.regioes) {
-          renderRegioesTable(data.regioes);
-          statusEl.textContent = "Regiões carregadas.";
-        } else if (data.mensagem) {
-          statusEl.textContent = data.mensagem;
-        } else {
-          statusEl.textContent = "Resposta inesperada de /regioes.";
-        }
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = `Erro ao carregar /regioes: ${err.message}`;
-      }
-    }
-
-    async function simularPonto() {
-      const nome = document.getElementById("simNome").value.trim();
-      const latitude = Number(document.getElementById("simLat").value);
-      const longitude = Number(document.getElementById("simLon").value);
-      const chuva_mm = Number(document.getElementById("simChuva").value);
-      const prob_chuva = Number(document.getElementById("simProb").value);
-      const acumulado_24h = Number(document.getElementById("simAcum").value);
-      const msgEl = document.getElementById("simMsg");
-
-      if (!isFinite(latitude) || !isFinite(longitude)) {
-        msgEl.innerHTML = `<div class="error">Latitude/Longitude inválidas.</div>`;
-        return;
-      }
-
-      const payload = { nome, latitude, longitude, chuva_mm, prob_chuva, acumulado_24h };
-      try {
-        const resp = await fetchJSON(`${API_BASE}/simular`, {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-        // Add simulated point to map immediately
-        addPointToMap(resp);
-        map.setView([resp.latitude, resp.longitude], 14);
-        msgEl.innerHTML = `<div class="success">Ponto simulado adicionado: risco ${resp.risco}, score ${Number(resp.score).toFixed(3)}.</div>`;
-      } catch (err) {
-        console.error(err);
-        msgEl.innerHTML = `<div class="error">Erro na simulação: ${err.message}</div>`;
-      }
-    }
-
-    // Bind UI
-    document.getElementById("btnReload").addEventListener("click", async () => {
-      await loadMapa();
-      await loadRegioes();
-    });
-    document.getElementById("btnSimular").addEventListener("click", simularPonto);
-
-    // Initial load
-    (async function init() {
-      await loadMapa();
-      await loadRegioes();
-    })();
+    carregarMapa();
   </script>
 </body>
 </html>
