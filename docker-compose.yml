@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/alagamentos
+      - APAC_URL=http://dados.apac.pe.gov.br:41120/meteorologia24h/
+    depends_on:
+      - db
+    volumes:
+      - ./data:/app/data
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=alagamentos
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=user
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

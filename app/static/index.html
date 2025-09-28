@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Previsão de Alagamentos - Recife</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🌧️ Previsão de Alagamentos - Recife</h1>
+        <p>Monitoramento em tempo real das áreas de risco</p>
+    </div>
+
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div id="alerta-geral"></div>
+            <h3>Áreas de Risco Monitoradas</h3>
+            <div id="areas-list"></div>
+        </div>
+        
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="controls">
+                <button onclick="carregarDados()">
+                    🔄 Atualizar Dados
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">
+        <h3>Carregando dados de alagamento...</h3>
+        <p>Analisando áreas de risco em Recife</p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
