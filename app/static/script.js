@@ -1,96 +1,288 @@
+// script.js - Sistema de Monitoramento de Alagamentos
 var map = L.map('map').setView([-8.0631, -34.8713], 12);
-var areasLayer = L.layerGroup().addTo(map);
+var bairrosLayer = L.layerGroup().addTo(map);
 var alertaGeral = '';
 var ultimaAtualizacao = '';
 
 function inicializarMapa() {
-    // Mapa mais limpo para melhor visualização dos polígonos
-   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20
-}).addTo(map);
-    map.getPane('tilePane').style.filter = 'brightness(0.85) contrast(1.2)';
-
-    // Adicionar controle de camadas
-    L.control.scale({imperial: false}).addTo(map);
-}
-
-function mostrarContextoAlerta() {
-    const contextoDiv = document.getElementById('contexto-alerta');
-    if (!contextoDiv) {
-        const novaDiv = document.createElement('div');
-        novaDiv.id = 'contexto-alerta';
-        novaDiv.className = 'contexto-info';
-        document.getElementById('sidebar').insertBefore(novaDiv, document.getElementById('alerta-geral'));
-    }
+    console.log('🗺️ Inicializando mapa...');
     
-    document.getElementById('contexto-alerta').innerHTML = `
-        <div class="contexto-content">
-            <div class="fonte-info">
-                <strong>📊 Fonte dos dados:</strong>
-                <div>• APAC - Dados em tempo real</div>
-                <div>• Defesa Civil do Recife</div>
-                <div>• CPRM - Serviço Geológico</div>
-            </div>
-            <div class="atualizacao-info">
-                <strong>🕒 Última atualização:</strong>
-                <div id="hora-atualizacao">${ultimaAtualizacao}</div>
-            </div>
-        </div>
-    `;
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+    
+    L.control.scale({imperial: false}).addTo(map);
+    console.log('✅ Mapa inicializado');
 }
 
 async function carregarDados() {
     try {
+        console.log('🌊 Buscando dados da API...');
         mostrarLoading(true);
         
         const response = await fetch('/api/previsao');
-        if (!response.ok) throw new Error('Erro na resposta da API');
+        if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
         
         const data = await response.json();
+        console.log('✅ Dados recebidos:', data);
+        
         ultimaAtualizacao = new Date().toLocaleString('pt-BR');
         processarDados(data);
+        mostrarLoading(false);
         
-    } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        mostrarErro('Erro ao carregar dados da APAC. Verifique a conexão.');
-    } finally {
+    } catch (err) {
+        console.error('❌ Erro ao carregar dados:', err);
+        mostrarErro('Erro ao carregar dados. Verifique a conexão.');
         mostrarLoading(false);
     }
 }
 
 function processarDados(data) {
-    atualizarAlertaGeral(data.alerta_geral);
-    mostrarContextoAlerta();
+    console.log('🔄 Processando dados...', data);
     
-    areasLayer.clearLayers();
-    document.getElementById('areas-list').innerHTML = '';
+    if (!data || !data.bairros) {
+        console.error('❌ Dados inválidos da API:', data);
+        mostrarErro('Estrutura de dados inválida da API');
+        return;
+    }
+
+    atualizarAlertaGeral(data.alerta_geral || 'SITUAÇÃO NORMAL');
+    atualizarEstatisticas(data.estatisticas);
+    atualizarContextoAlerta(data);
     
-    // Ordenar áreas por risco (maior primeiro)
-    const areasOrdenadas = data.areas.sort((a, b) => b.risco_atual - a.risco_atual);
+    // Limpar layers anteriores
+    bairrosLayer.clearLayers();
     
-    areasOrdenadas.forEach((area, index) => {
-        adicionarAreaNoMapa(area);
-        adicionarAreaNaLista(area, index);
+    // Limpar lista de áreas
+    const areasList = document.getElementById('areas-list');
+    if (areasList) areasList.innerHTML = '';
+    
+    console.log(`📍 Processando ${data.bairros.length} bairros...`);
+    
+    // Adicionar cada bairro ao mapa e à lista
+    data.bairros.forEach((bairro, index) => {
+        if (bairro && bairro.nome) {
+            adicionarBairroNoMapa(bairro);
+            adicionarBairroNaLista(bairro, index);
+        }
     });
     
-    // Atualizar hora da última atualização
-    document.getElementById('hora-atualizacao').textContent = ultimaAtualizacao;
+    console.log('✅ Processamento concluído!');
+}
+
+function adicionarBairroNoMapa(bairro) {
+    // Verificar se tem polígonos
+    let poligonos = [];
+    
+    if (bairro.poligono && Array.isArray(bairro.poligono)) {
+        poligonos = [bairro.poligono];
+    }
+    
+    if (poligonos.length === 0) {
+        console.warn(`❌ Bairro sem polígonos: ${bairro.nome}`);
+        criarMarcadorFallback(bairro);
+        return;
+    }
+    
+    console.log(`✅ Adicionando polígono para: ${bairro.nome}`);
+    
+    // Criar polígonos
+    poligonos.forEach((poligono, index) => {
+        const coordenadasValidas = validarCoordenadas(poligono);
+        
+        if (coordenadasValidas.length < 3) {
+            console.warn(`⚠️ Polígono ${index} inválido para: ${bairro.nome}`);
+            criarMarcadorFallback(bairro);
+            return;
+        }
+        
+        try {
+            const polygon = L.polygon(coordenadasValidas, {
+                color: bairro.cor_risco || '#FF4444',
+                fillColor: bairro.cor_risco || '#FF4444',
+                fillOpacity: 0.5,
+                weight: 2,
+                opacity: 0.8,
+                className: 'area-polygon'
+            }).addTo(bairrosLayer);
+            
+            const popupContent = criarPopupBairro(bairro);
+            polygon.bindPopup(popupContent);
+            
+            // Evento de clique para centralizar
+            polygon.on('click', function() {
+                map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
+                this.openPopup();
+            });
+            
+        } catch (error) {
+            console.error(`💥 Erro ao criar polígono para ${bairro.nome}:`, error);
+            criarMarcadorFallback(bairro);
+        }
+    });
+}
+
+function validarCoordenadas(poligono) {
+    const coordenadasValidas = [];
+    
+    for (let i = 0; i < poligono.length; i++) {
+        const ponto = poligono[i];
+        
+        if (!ponto || !Array.isArray(ponto) || ponto.length !== 2) {
+            console.warn(`⚠️ Ponto ${i} inválido:`, ponto);
+            continue;
+        }
+        
+        const [lat, lng] = ponto;
+        if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
+            console.warn(`⚠️ Ponto ${i} inválido (coordenadas inválidas):`, ponto);
+            continue;
+        }
+        
+        coordenadasValidas.push([lat, lng]);
+    }
+    
+    return coordenadasValidas;
+}
+
+function criarMarcadorFallback(bairro) {
+    const icon = L.divIcon({
+        html: `
+            <div class="bairro-marker" style="background: ${bairro.cor_risco};">
+                <div class="bairro-probabilidade">${bairro.probabilidade_alagamento}%</div>
+                <div class="bairro-nome">${bairro.nome.split(' ')[0]}</div>
+            </div>
+        `,
+        className: 'risk-marker',
+        iconSize: [50, 50],
+        iconAnchor: [25, 25]
+    });
+
+    const marker = L.marker(bairro.centro || [-8.0631, -34.8711], {icon: icon}).addTo(bairrosLayer);
+    
+    const popupContent = criarPopupBairro(bairro);
+    marker.bindPopup(popupContent);
+    
+    marker.on('click', function() {
+        this.openPopup();
+    });
+}
+
+function criarPopupBairro(bairro) {
+    return `
+        <div class="popup-content">
+            <div class="popup-header" style="border-left: 4px solid ${bairro.cor_risco}">
+                <h3 style="margin: 0 0 5px 0; color: ${bairro.cor_risco}">${bairro.nome}</h3>
+                <div style="font-size: 0.9em; color: #666">${bairro.regiao}</div>
+            </div>
+            
+            <div class="popup-risk-info">
+                <div class="risk-level">
+                    <span>Nível de Risco:</span>
+                    <strong style="color: ${bairro.cor_risco}">${bairro.nivel_risco}</strong>
+                </div>
+                <div class="risk-probability">
+                    <span>Probabilidade:</span>
+                    <strong>${bairro.probabilidade_alagamento}%</strong>
+                </div>
+                <div class="risk-score">
+                    <span>Score:</span>
+                    <strong>${bairro.risco_atual || 0}</strong>
+                </div>
+            </div>
+            
+            <div class="popup-details">
+                <div><strong>Área:</strong> ${bairro.area_km2 || 'N/A'} km²</div>
+            </div>
+            
+            <div class="popup-recomendacoes">
+                <strong>📋 Recomendações:</strong>
+                <ul style="margin: 5px 0; padding-left: 15px;">
+                    ${bairro.recomendacoes ? bairro.recomendacoes.map(rec => `<li>${rec}</li>`).join('') : 
+                    '<li>Monitorar condições locais</li><li>Verificar pontos de alagamento</li>'}
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+function adicionarBairroNaLista(bairro, index) {
+    const areasList = document.getElementById('areas-list');
+    if (!areasList) return;
+
+    const card = document.createElement('div');
+    
+    card.className = `area-card ${(bairro.nivel_risco || 'baixo').toLowerCase()} fade-in`;
+    card.onclick = () => centralizarBairro(bairro);
+    
+    card.innerHTML = `
+        <div class="area-header">
+            <div class="area-name">${bairro.nome || 'Bairro sem nome'}</div>
+            <div class="area-risk risk-${(bairro.nivel_risco || 'baixo').toLowerCase()}">
+                ${bairro.nivel_risco || 'NÃO INFORMADO'}
+            </div>
+        </div>
+        
+        <div class="area-score" style="color: ${bairro.cor_risco}; font-weight: bold; font-size: 1.2em; text-align: center; margin: 5px 0;">
+            ${bairro.probabilidade_alagamento || 0}% risco
+        </div>
+        
+        <div class="area-details">
+            <div class="detail-item">
+                <span class="detail-icon">📍</span>
+                <span class="detail-text">${bairro.regiao || 'Região não informada'}</span>
+            </div>
+            
+            <div class="detail-item">
+                <span class="detail-icon">📊</span>
+                <span class="detail-text">Score: ${(bairro.risco_atual || 0).toFixed(3)}</span>
+            </div>
+            
+            <div class="detail-item">
+                <span class="detail-icon">📏</span>
+                <span class="detail-text">${bairro.area_km2 || 0} km²</span>
+            </div>
+        </div>
+        
+        <div class="area-contexto">
+            Clique para ver no mapa
+        </div>
+    `;
+    
+    areasList.appendChild(card);
+}
+
+function centralizarBairro(bairro) {
+    if (bairro.centro) {
+        map.setView(bairro.centro, 15);
+        
+        // Abrir popup se possível
+        bairrosLayer.eachLayer(function(layer) {
+            if (layer.getPopup && layer.getPopup()) {
+                const popupContent = layer.getPopup().getContent();
+                if (popupContent && popupContent.includes(bairro.nome)) {
+                    layer.openPopup();
+                }
+            }
+        });
+    }
 }
 
 function atualizarAlertaGeral(alerta) {
     const alertaDiv = document.getElementById('alerta-geral');
-    
+    if (!alertaDiv) return;
+
     let classe = 'alert-banner ';
     let icone = '';
     let titulo = '';
     
-    if (alerta.includes('LARANJA')) {
+    if (alerta.includes('ALTO') || alerta.includes('CRITICO') || alerta.includes('LARANJA') || alerta.includes('VERMELHO')) {
         classe += 'alert-alto';
         icone = '🚨 ';
         titulo = 'ALERTA GERAL - RISCO ALTO';
-    } else if (alerta.includes('AMARELA')) {
+    } else if (alerta.includes('MODERADO') || alerta.includes('AMARELO')) {
         classe += 'alert-moderado';
         icone = '⚠️ ';
         titulo = 'ATENÇÃO - RISCO MODERADO';
@@ -108,193 +300,81 @@ function atualizarAlertaGeral(alerta) {
     `;
 }
 
-function adicionarAreaNoMapa(area) {
-    // Criar polígono com estilo melhorado
-    var polygon = L.polygon(area.poligono, {
-        color: area.cor_risco,
-        fillColor: area.cor_risco,
-        fillOpacity: 0.4,
-        weight: 3,
-        opacity: 0.8,
-        className: 'area-polygon'
-    }).addTo(areasLayer);
+function atualizarEstatisticas(estatisticas) {
+    if (!estatisticas) return;
     
-    // Calcular centro do polígono para o marcador
-    var center = calcularCentroPoligono(area.poligono);
+    // Atualizar elementos de estatística se existirem
+    const elementos = {
+        'total-bairros': estatisticas.total_bairros,
+        'alto-risco': estatisticas.alto_risco,
+        'moderado-risco': estatisticas.moderado_risco,
+        'baixo-risco': estatisticas.baixo_risco
+    };
     
-    // Adicionar marcador no centro com ícone de risco
-    var icon = L.divIcon({
-        html: `<div style="background: ${area.cor_risco}; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">${area.risco_atual.toFixed(1)}</div>`,
-        className: 'risk-marker',
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-    });
-    
-    var marker = L.marker(center, {icon: icon}).addTo(areasLayer);
-    
-    // Popup com informações completas
-    var popupContent = criarPopupContent(area);
-    polygon.bindPopup(popupContent);
-    marker.bindPopup(popupContent);
-    
-    // Eventos de interação
-    polygon.on('click', function() {
-        map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
-        this.openPopup();
-    });
-    
-    marker.on('click', function() {
-        map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
-        this.openPopup();
-    });
+    for (const [id, valor] of Object.entries(elementos)) {
+        const elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.textContent = valor || 0;
+        }
+    }
 }
 
-function criarPopupContent(area) {
-    const pontosCriticos = area.pontos_criticos.slice(0, 3).join(', ') + 
-                          (area.pontos_criticos.length > 3 ? '...' : '');
+function atualizarContextoAlerta(data) {
+    let contextoDiv = document.getElementById('contexto-alerta');
     
-    return `
-        <div class="popup-content">
-            <div class="popup-header" style="border-left: 4px solid ${area.cor_risco};">
-                <h3 style="margin: 0 0 5px 0; color: ${area.cor_risco};">${area.nome}</h3>
-                <div style="font-size: 0.9em; color: #666;">${area.regiao}</div>
+    if (!contextoDiv) {
+        // Criar div de contexto se não existir
+        contextoDiv = document.createElement('div');
+        contextoDiv.id = 'contexto-alerta';
+        contextoDiv.className = 'contexto-info';
+        
+        const sidebar = document.getElementById('sidebar');
+        const alertaGeral = document.getElementById('alerta-geral');
+        if (sidebar && alertaGeral) {
+            sidebar.insertBefore(contextoDiv, alertaGeral.nextSibling);
+        }
+    }
+    
+    contextoDiv.innerHTML = `
+        <div class="contexto-content">
+            <div class="fonte-info">
+                <strong>📊 Fonte dos dados:</strong>
+                <div>• Shapefile oficial do Recife</div>
+                <div>• APAC - Dados em tempo real</div>
+                <div>• Defesa Civil do Recife</div>
             </div>
-            
-            <div class="popup-risk-info">
-                <div class="risk-level">
-                    <span>Nível de Risco:</span>
-                    <strong style="color: ${area.cor_risco}">${area.nivel_risco}</strong>
-                </div>
-                <div class="risk-score">
-                    <span>Score:</span>
-                    <strong>${area.risco_atual.toFixed(3)}</strong>
-                </div>
-                <div class="risk-probability">
-                    <span>Probabilidade:</span>
-                    <strong>${area.probabilidade_alagamento}</strong>
-                </div>
+            <div class="atualizacao-info">
+                <strong>🕒 Última atualização:</strong>
+                <div>${ultimaAtualizacao}</div>
             </div>
-            
-            <div class="popup-details">
-                <div class="bairros-section">
-                    <strong>📍 Bairros:</strong>
-                    <div>${area.bairros.join(', ')}</div>
-                </div>
-                
-                <div class="pontos-criticos-section">
-                    <strong>⚠️ Pontos Críticos:</strong>
-                    <div>${pontosCriticos}</div>
-                </div>
-                
-                <div class="contexto-section">
-                    <strong>📋 Contexto:</strong>
-                    <div>Baseado em dados oficiais da Defesa Civil</div>
-                </div>
-                
-                <div class="fonte-section">
-                    <strong>🌧️ Fonte:</strong>
-                    <div>Dados em tempo real da APAC</div>
-                </div>
+            ${data.estatisticas ? `
+            <div class="stats-info">
+                <strong>📈 Estatísticas:</strong>
+                <div>• ${data.estatisticas.total_bairros} bairros monitorados</div>
+                <div>• ${data.estatisticas.alto_risco} em alto risco</div>
+                <div>• ${data.estatisticas.moderado_risco} em risco moderado</div>
             </div>
+            ` : ''}
         </div>
     `;
-}
-
-function adicionarAreaNaLista(area, index) {
-    const areasList = document.getElementById('areas-list');
-    const card = document.createElement('div');
-    
-    card.className = `area-card ${area.nivel_risco.toLowerCase()} fade-in`;
-    card.onclick = () => centralizarArea(area);
-    
-    const pontosCriticos = area.pontos_criticos.slice(0, 2).join(', ') + 
-                          (area.pontos_criticos.length > 2 ? '...' : '');
-    
-    card.innerHTML = `
-        <div class="area-header">
-            <div class="area-name">${area.nome}</div>
-            <div class="area-risk risk-${area.nivel_risco.toLowerCase()}">
-                ${area.nivel_risco}
-            </div>
-        </div>
-        
-        <div class="area-score" style="color: ${area.cor_risco}; font-weight: bold; font-size: 1.2em; text-align: center; margin: 5px 0;">
-            Score: ${area.risco_atual.toFixed(3)}
-        </div>
-        
-        <div class="area-details">
-            <div class="detail-item">
-                <span class="detail-icon">📍</span>
-                <span class="detail-text">${area.regiao}</span>
-            </div>
-            
-            <div class="detail-item">
-                <span class="detail-icon">🏘️</span>
-                <span class="detail-text">${area.bairros.slice(0, 2).join(', ')}${area.bairros.length > 2 ? '...' : ''}</span>
-            </div>
-            
-            <div class="detail-item">
-                <span class="detail-icon">⚠️</span>
-                <span class="detail-text">${pontosCriticos}</span>
-            </div>
-            
-            <div class="detail-item">
-                <span class="detail-icon">🌧️</span>
-                <span class="detail-text">Dados em tempo real</span>
-            </div>
-            
-            <div class="detail-item">
-                <span class="detail-icon">🕒</span>
-                <span class="detail-text">Atualizado: Agora</span>
-            </div>
-        </div>
-        
-        <div class="area-contexto">
-            <small>Fonte: Defesa Civil do Recife</small>
-        </div>
-    `;
-    
-    areasList.appendChild(card);
-}
-
-function calcularCentroPoligono(poligono) {
-    const lats = poligono.map(p => p[0]);
-    const lons = poligono.map(p => p[1]);
-    return [
-        lats.reduce((a, b) => a + b) / lats.length,
-        lons.reduce((a, b) => a + b) / lons.length
-    ];
-}
-
-function centralizarArea(area) {
-    var bounds = L.latLngBounds(area.poligono);
-    map.fitBounds(bounds, { padding: [30, 30] });
-    
-    // Abrir popup após centralizar
-    setTimeout(() => {
-        areasLayer.eachLayer(function(layer) {
-            if (layer instanceof L.Polygon) {
-                const layerBounds = layer.getBounds();
-                if (layerBounds.toBBoxString() === bounds.toBBoxString()) {
-                    layer.openPopup();
-                }
-            }
-        });
-    }, 500);
 }
 
 function mostrarLoading(mostrar) {
     const loading = document.getElementById('loading');
+    if (!loading) return;
+
     if (mostrar) {
+        loading.style.display = 'block';
         loading.innerHTML = `
             <div class="loading-content">
                 <div class="spinner"></div>
                 <h3>Carregando dados de alagamento...</h3>
-                <p>Conectando com APAC e analisando áreas de risco</p>
-                <div class="loading-source">Fonte: Defesa Civil do Recife</div>
+                <p>Analisando áreas de risco em Recife</p>
+                <div class="loading-source">
+                    Conectando com APAC e Defesa Civil...
+                </div>
             </div>
         `;
-        loading.style.display = 'block';
     } else {
         loading.style.display = 'none';
     }
@@ -302,40 +382,81 @@ function mostrarLoading(mostrar) {
 
 function mostrarErro(mensagem) {
     const loading = document.getElementById('loading');
+    if (!loading) return;
+
+    loading.style.display = 'block';
     loading.innerHTML = `
         <div class="error-content">
             <div class="error-icon">❌</div>
             <h3 style="color: #dc3545;">Erro de Conexão</h3>
             <p>${mensagem}</p>
             <div class="error-context">
-                <strong>Contexto:</strong> Sistema usando dados históricos da Defesa Civil
+                Verifique se o servidor está rodando em http://localhost:8000
             </div>
             <button onclick="carregarDados()" class="retry-btn">
                 🔄 Tentar Novamente
             </button>
         </div>
     `;
-    loading.style.display = 'block';
 }
+
+// Adicionar CSS dinâmico para marcadores
+const estiloMarcadores = `
+<style>
+.bairro-marker {
+    background: #FF4444;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+}
+
+.bairro-probabilidade {
+    font-size: 12px;
+    line-height: 1;
+}
+
+.bairro-nome {
+    font-size: 8px;
+    line-height: 1;
+    margin-top: 2px;
+}
+
+.risk-marker {
+    background: transparent !important;
+    border: none !important;
+}
+</style>
+`;
+
+// Adicionar CSS ao documento
+document.head.insertAdjacentHTML('beforeend', estiloMarcadores);
 
 // Inicialização quando a página carrega
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Inicializando sistema de monitoramento...');
+    
+    // Inicializar mapa
     inicializarMapa();
-    carregarDados();
+    
+    // Carregar dados após um pequeno delay para garantir que o mapa está pronto
+    setTimeout(() => {
+        carregarDados();
+    }, 500);
     
     // Atualizar a cada 5 minutos
     setInterval(carregarDados, 300000);
-    
-    // Tecla F5 para atualizar
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'F5') {
-            e.preventDefault();
-            carregarDados();
-        }
-    });
 });
 
-// Função para forçar atualização
-function forcarAtualizacao() {
-    carregarDados();
-}
+// Exportar funções para uso global
+window.carregarDados = carregarDados;
+window.centralizarBairro = centralizarBairro;

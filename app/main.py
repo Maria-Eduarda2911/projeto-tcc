@@ -1,107 +1,57 @@
-from fastapi import FastAPI, HTTPException
+# main.py
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict, Any, List
+from data.areas_risco import gerar_json_mapa
+import uvicorn
 import os
-import sys
+import asyncio
+from datetime import datetime
+import logging
 
-# Adiciona o diretório atual ao path
-sys.path.append(os.path.dirname(__file__))
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Sistema de Previsão de Alagamentos - Recife")
+app = FastAPI(title="Mapa de Risco - Recife")
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Servir arquivos estáticos
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Obter caminho absoluto para a pasta static
-static_path = os.path.join(os.path.dirname(__file__), "static")
-app.mount("/static", StaticFiles(directory=static_path), name="static")
+# Cache
+ULTIMA_PREVISAO = None
 
-# Importações
-try:
-    from services.apac_client import APACClient
-    from services.data_processor import DataProcessor
-    from models.predictor import FloodPredictor
-    from data.areas_risco import AREAS_RISCO_RECIFE, BAIRROS_CRITICOS, get_areas_com_risco_fallback
-except ImportError as e:
-    print(f"Erro de importação: {e}")
-    APACClient = None
-    DataProcessor = None
-    FloodPredictor = None
+async def atualizar_cache():
+    """Atualiza o cache periodicamente"""
+    global ULTIMA_PREVISAO
+    while True:
+        try:
+            ULTIMA_PREVISAO = gerar_json_mapa()
+            logger.info(f"🔄 Cache atualizado - {len(ULTIMA_PREVISAO['bairros'])} bairros")
+        except Exception as e:
+            logger.error(f"❌ Erro ao atualizar cache: {e}")
+        await asyncio.sleep(300)  # 5 minutos
 
-APAC_URL = "http://dados.apac.pe.gov.br:41120/meteorologia24h/"
+@app.on_event("startup")
+async def startup_event():
+    """Inicializa na startup"""
+    logger.info("🚀 Inicializando Mapa de Risco Recife...")
+    asyncio.create_task(atualizar_cache())
 
 @app.get("/")
 async def read_root():
-    index_path = os.path.join(static_path, 'index.html')
-    return FileResponse(index_path)
-
-@app.get("/health")
-async def health_check():
-    return {"status": "online", "service": "Alagamentos Recife"}
-
-@app.get("/api/areas-risco")
-async def get_areas_risco():
-    return {
-        "areas": AREAS_RISCO_RECIFE,
-        "bairros_criticos": BAIRROS_CRITICOS,
-        "total_areas": len(AREAS_RISCO_RECIFE)
-    }
+    return FileResponse("static/index.html")
 
 @app.get("/api/previsao")
-async def get_previsao_alagamentos():
-    try:
-        client = APACClient(APAC_URL)
-        dados_apac = await client.get_dados_meteorologia()
-        
-        processor = DataProcessor()
-        predictor = FloodPredictor()
-        
-        areas_com_previsao = []
-        
-        for area in AREAS_RISCO_RECIFE:
-            risco_calculado = predictor.calcular_risco_area(area, dados_apac)
-            
-            area_com_previsao = {
-                **area,
-                "risco_atual": risco_calculado["score"],
-                "nivel_risco": risco_calculado["nivel"],
-                "cor_risco": risco_calculado["cor"],
-                "probabilidade_alagamento": risco_calculado["probabilidade"]
-            }
-            areas_com_previsao.append(area_com_previsao)
-        
-        return {
-            "previsao_gerada_em": processor.get_timestamp(),
-            "areas": areas_com_previsao,
-            "alerta_geral": predictor.determinar_alerta_geral(areas_com_previsao)
-        }
-        
-    except Exception as e:
-        print(f"Erro ao obter previsão: {e}")
-        return get_areas_com_risco_fallback()
-
-@app.get("/api/detalhes-area/{area_id}")
-async def get_detalhes_area(area_id: int):
-    if area_id < 0 or area_id >= len(AREAS_RISCO_RECIFE):
-        raise HTTPException(status_code=404, detail="Área não encontrada")
+async def get_previsao():
+    """Retorna dados para o mapa"""
+    if ULTIMA_PREVISAO is None:
+        data = gerar_json_mapa()
+    else:
+        data = ULTIMA_PREVISAO
     
-    area = AREAS_RISCO_RECIFE[area_id]
-    return {
-        "area": area,
-        "recomendacoes": [
-            "⚠️ ALTO RISCO - Evitar deslocamento" if area.get("risco_base", 0.5) >= 0.7 else
-            "🔶 ATENÇÃO - Ficar alerta" if area.get("risco_base", 0.5) >= 0.4 else
-            "✅ Situação normal"
-        ]
-    }
+    logger.info(f"📦 Retornando {len(data['bairros'])} bairros do cache")
+    return data
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
