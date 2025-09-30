@@ -23,9 +23,44 @@
         <div class="map-container">
             <div id="map"></div>
             <div class="controls">
-                <button onclick="carregarDados()">
-                    🔄 Atualizar Dados
+                <button onclick="abrirFiltros()">
+                    🔍 Filtrar por RPA e Risco
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Filtros -->
+    <div id="filterModal" class="filter-modal">
+        <div class="filter-content">
+            <h3>Filtrar Áreas</h3>
+            
+            <div class="filter-section">
+                <h4>Filtrar por RPA</h4>
+                <div class="filter-options">
+                    <button class="filter-btn rpa-btn active" data-rpa="todas">Todas</button>
+                    <button class="filter-btn rpa-btn" data-rpa="1">RPA 1</button>
+                    <button class="filter-btn rpa-btn" data-rpa="2">RPA 2</button>
+                    <button class="filter-btn rpa-btn" data-rpa="3">RPA 3</button>
+                    <button class="filter-btn rpa-btn" data-rpa="4">RPA 4</button>
+                    <button class="filter-btn rpa-btn" data-rpa="5">RPA 5</button>
+                    <button class="filter-btn rpa-btn" data-rpa="6">RPA 6</button>
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <h4>Filtrar por Nível de Risco</h4>
+                <div class="filter-options">
+                    <button class="filter-btn risk-btn active" data-risk="todos">Todos</button>
+                    <button class="filter-btn risk-btn" data-risk="baixo">Baixo</button>
+                    <button class="filter-btn risk-btn" data-risk="medio">Moderado</button>
+                    <button class="filter-btn risk-btn" data-risk="alto">Alto</button>
+                </div>
+            </div>
+            
+            <div class="filter-actions">
+                <button class="btn-secondary" onclick="fecharFiltros()">Cancelar</button>
+                <button class="btn-primary" onclick="aplicarFiltros()">Aplicar Filtros</button>
             </div>
         </div>
     </div>

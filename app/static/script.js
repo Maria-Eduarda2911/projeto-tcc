@@ -4,6 +4,11 @@ var bairrosLayer = L.layerGroup().addTo(map);
 var alertaGeral = '';
 var ultimaAtualizacao = '';
 
+// Variáveis globais para filtros
+let rpaSelecionada = 'todas';
+let riscoSelecionado = 'todos';
+let todosBairros = []; // Para armazenar todos os bairros carregados
+
 function inicializarMapa() {
     console.log('🗺️ Inicializando mapa...');
     
@@ -47,6 +52,9 @@ function processarDados(data) {
         mostrarErro('Estrutura de dados inválida da API');
         return;
     }
+
+    // Armazenar todos os bairros para filtragem
+    todosBairros = data.bairros;
 
     atualizarAlertaGeral(data.alerta_geral || 'SITUAÇÃO NORMAL');
     atualizarEstatisticas(data.estatisticas);
@@ -400,6 +408,109 @@ function mostrarErro(mensagem) {
     `;
 }
 
+// ============================================================================
+// FUNÇÕES DO FILTRO
+// ============================================================================
+
+function abrirFiltros() {
+    console.log('🔍 Abrindo modal de filtros...');
+    document.getElementById('filterModal').style.display = 'flex';
+}
+
+function fecharFiltros() {
+    console.log('❌ Fechando modal de filtros...');
+    document.getElementById('filterModal').style.display = 'none';
+}
+
+function aplicarFiltros() {
+    console.log('🔍 Aplicando filtros...', { rpaSelecionada, riscoSelecionado });
+    
+    // Limpar layers anteriores
+    bairrosLayer.clearLayers();
+    
+    // Limpar lista de áreas
+    const areasList = document.getElementById('areas-list');
+    if (areasList) areasList.innerHTML = '';
+    
+    // Filtrar bairros baseado nas variáveis do Python
+    const bairrosFiltrados = todosBairros.filter(bairro => {
+        // Extrair número da RPA do campo "regiao" (formato: "RPA X")
+        let rpaBairro = null;
+        if (bairro.regiao && bairro.regiao.includes('RPA')) {
+            const match = bairro.regiao.match(/RPA\s*(\d+)/);
+            rpaBairro = match ? match[1] : null;
+        }
+        
+        // Filtro por RPA
+        const filtroRPA = rpaSelecionada === 'todas' || 
+                         (rpaBairro && rpaBairro === rpaSelecionada);
+        
+        // Normalizar níveis de risco para compatibilidade
+        const nivelRiscoBairro = bairro.nivel_risco ? bairro.nivel_risco.toLowerCase() : '';
+        let riscoFiltroNormalizado = riscoSelecionado;
+        
+        // Converter "medio" do filtro para "moderado" do Python
+        if (riscoSelecionado === 'medio') {
+            riscoFiltroNormalizado = 'moderado';
+        }
+        
+        // Filtro por nível de risco (usando campo "nivel_risco")
+        const filtroRisco = riscoSelecionado === 'todos' || 
+                           nivelRiscoBairro === riscoFiltroNormalizado;
+        
+        return filtroRPA && filtroRisco;
+    });
+    
+    console.log(`📍 Mostrando ${bairrosFiltrados.length} bairros filtrados`);
+    
+    // Adicionar bairros filtrados ao mapa e à lista
+    bairrosFiltrados.forEach((bairro, index) => {
+        if (bairro && bairro.nome) {
+            adicionarBairroNoMapa(bairro);
+            adicionarBairroNaLista(bairro, index);
+        }
+    });
+    
+    fecharFiltros();
+}
+
+// Configurar eventos dos botões de filtro
+function configurarEventosFiltro() {
+    // Eventos para botões RPA
+    document.querySelectorAll('.rpa-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.rpa-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            rpaSelecionada = this.getAttribute('data-rpa');
+            console.log(`📍 RPA selecionada: ${rpaSelecionada}`);
+        });
+    });
+    
+    // Eventos para botões de risco
+    document.querySelectorAll('.risk-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.risk-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            riscoSelecionado = this.getAttribute('data-risk');
+            console.log(`⚠️ Risco selecionado: ${riscoSelecionado}`);
+        });
+    });
+    
+    // Fechar modal ao clicar fora
+    document.getElementById('filterModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            fecharFiltros();
+        }
+    });
+    
+    // Fechar modal com ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            fecharFiltros();
+        }
+    });
+}
+
 // Adicionar CSS dinâmico para marcadores
 const estiloMarcadores = `
 <style>
@@ -448,15 +559,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar mapa
     inicializarMapa();
     
+    // Configurar eventos do filtro
+    configurarEventosFiltro();
+    
     // Carregar dados após um pequeno delay para garantir que o mapa está pronto
     setTimeout(() => {
         carregarDados();
     }, 500);
     
-    // Atualizar a cada 5 minutos
+    // Atualizar a cada 5 minutos (automático - removido botão)
     setInterval(carregarDados, 300000);
 });
 
 // Exportar funções para uso global
 window.carregarDados = carregarDados;
 window.centralizarBairro = centralizarBairro;
+window.abrirFiltros = abrirFiltros;
+window.fecharFiltros = fecharFiltros;
+window.aplicarFiltros = aplicarFiltros;
