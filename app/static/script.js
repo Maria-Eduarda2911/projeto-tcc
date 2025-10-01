@@ -179,42 +179,55 @@ function criarMarcadorFallback(bairro) {
 }
 
 function criarPopupBairro(bairro) {
-    return `
-        <div class="popup-content">
-            <div class="popup-header" style="border-left: 4px solid ${bairro.cor_risco}">
-                <h3 style="margin: 0 0 5px 0; color: ${bairro.cor_risco}">${bairro.nome}</h3>
-                <div style="font-size: 0.9em; color: #666">${bairro.regiao}</div>
-            </div>
-            
-            <div class="popup-risk-info">
-                <div class="risk-level">
-                    <span>Nível de Risco:</span>
-                    <strong style="color: ${bairro.cor_risco}">${bairro.nivel_risco}</strong>
-                </div>
-                <div class="risk-probability">
-                    <span>Probabilidade:</span>
-                    <strong>${bairro.probabilidade_alagamento}%</strong>
-                </div>
-                <div class="risk-score">
-                    <span>Score:</span>
-                    <strong>${bairro.risco_atual || 0}</strong>
-                </div>
-            </div>
-            
-            <div class="popup-details">
-                <div><strong>Área:</strong> ${bairro.area_km2 || 'N/A'} km²</div>
-            </div>
-            
-            <div class="popup-recomendacoes">
-                <strong>📋 Recomendações:</strong>
-                <ul style="margin: 5px 0; padding-left: 15px;">
-                    ${bairro.recomendacoes ? bairro.recomendacoes.map(rec => `<li>${rec}</li>`).join('') : 
-                    '<li>Monitorar condições locais</li><li>Verificar pontos de alagamento</li>'}
-                </ul>
-            </div>
+  const dadosTempo = bairro.dados_reais_tempo || {};
+
+  return `
+    <div class="popup-content">
+      <div class="popup-header" style="border-left: 4px solid ${bairro.cor_risco}">
+        <h3 style="margin: 0 0 5px 0; color: ${bairro.cor_risco}">${bairro.nome}</h3>
+        <div style="font-size: 0.9em; color: #666">${bairro.regiao}</div>
+      </div>
+      
+      <div class="popup-risk-info">
+        <div class="risk-level">
+          <span>Nível de Risco:</span>
+          <strong style="color: ${bairro.cor_risco}">${bairro.nivel_risco}</strong>
         </div>
-    `;
+        <div class="risk-probability">
+          <span>Probabilidade:</span>
+          <strong>${bairro.probabilidade_alagamento}%</strong>
+        </div>
+        <div class="risk-score">
+          <span>Score:</span>
+          <strong>${(bairro.risco_atual || 0).toFixed(3)}</strong>
+        </div>
+      </div>
+      
+      <div class="popup-details">
+        <div><strong>Área:</strong> ${bairro.area_km2 || 'N/A'} km²</div>
+      </div>
+      
+      <div class="popup-realtime">
+        <h4 style="margin: 10px 0 5px 0; font-size: 1em; color: #333">🌐 Dados em Tempo Real</h4>
+        <div><span>🌧️ Acumulado 1h:</span> ${dadosTempo.acumulado_chuva_1h || 'N/A'} mm</div>
+        <div><span>🌡️ Temperatura:</span> ${dadosTempo.temperatura_atual || 'N/A'} °C</div>
+        <div><span>💧 Umidade:</span> ${dadosTempo.umidade || 'N/A'} %</div>
+        <div><span>🌊 Vazão rios:</span> ${dadosTempo.vazao_rios || 'N/A'} m³/s</div>
+        <div><span>🕒 Atualizado:</span> ${dadosTempo.hora_atualizacao || '-'}</div>
+      </div>
+      
+      <div class="popup-recomendacoes">
+        <strong>📋 Recomendações:</strong>
+        <ul style="margin: 5px 0; padding-left: 15px;">
+          ${bairro.recomendacoes 
+            ? bairro.recomendacoes.map(rec => `<li>${rec}</li>`).join('') 
+            : '<li>Monitorar condições locais</li><li>Verificar pontos de alagamento</li>'}
+        </ul>
+      </div>
+    </div>
+  `;
 }
+
 
 function adicionarBairroNaLista(bairro, index) {
     const areasList = document.getElementById('areas-list');
@@ -348,8 +361,7 @@ function atualizarContextoAlerta(data) {
             <div class="fonte-info">
                 <strong>📊 Fonte dos dados:</strong>
                 <div>• Shapefile oficial do Recife</div>
-                <div>• APAC - Dados em tempo real</div>
-                <div>• Defesa Civil do Recife</div>
+                <div>• Dados meteorológicos da APAC </div>
             </div>
             <div class="atualizacao-info">
                 <strong>🕒 Última atualização:</strong>

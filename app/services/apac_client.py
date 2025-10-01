@@ -4,7 +4,8 @@ from typing import Dict, Any
 class APACClient:
     def __init__(self, base_url: str):
         self.base_url = base_url
-        self.timeout = aiohttp.ClientTimeout(total=15.0)
+        # Separando timeout de conexão e leitura
+        self.timeout = aiohttp.ClientTimeout(connect=10, sock_read=15)
     
     async def get_dados_meteorologia(self) -> Dict[str, Any]:
         """Obter dados meteorológicos da APAC"""
@@ -14,13 +15,14 @@ class APACClient:
                     if response.status == 200:
                         return await response.json()
                     else:
+                        print(f"APAC retornou status {response.status}, usando dados de fallback")
                         return self._get_dados_exemplo()
         except Exception as e:
-            print(f"Erro APAC: {e}")
+            print(f"Erro APAC: {e}, usando dados de fallback")
             return self._get_dados_exemplo()
     
     def _get_dados_exemplo(self) -> Dict[str, Any]:
-        """Dados de exemplo quando a APAC está offline"""
+        """Dados de fallback quando a APAC está offline"""
         return {
             "estacoes": [
                 {
